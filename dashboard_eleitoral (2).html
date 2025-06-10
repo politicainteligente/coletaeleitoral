@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Eleitoral</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f9fafb;
+      color: #111827;
+    }
+    header {
+      background-color: #2563eb;
+      color: white;
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+    .container {
+      max-width: 1024px;
+      margin: auto;
+      padding: 1rem;
+    }
+    .card {
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      color: #1e40af;
+    }
+    input, textarea, select, button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+    }
+    button {
+      background-color: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    ul {
+      padding-left: 1.25rem;
+    }
+    canvas {
+      margin-top: 1rem;
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    Dashboard Eleitoral Interativo
+  </header>
+  <div class="container">
+    <div class="card">
+      <h2>Formulário de Coleta</h2>
+      <form id="formulario">
+        <input name="nome" placeholder="Nome" required />
+        <input name="idade" placeholder="Idade" type="number" required />
+        <input name="genero" placeholder="Gênero" required />
+        <input name="cidade" placeholder="Cidade" required />
+        <input name="bairro" placeholder="Bairro" required />
+        <textarea name="principaisDemandas" placeholder="Principais demandas" required></textarea>
+        <input name="avaliacaoCandidato" placeholder="Avaliação do Candidato (0 a 10)" type="number" required />
+        <input name="conheceCandidato" placeholder="Você conhece o pré-candidato? (Sim/Não)" required />
+        <input name="fonteInformacao" placeholder="Fonte de informação política" required />
+        <input name="pretendeVotar" placeholder="Pretende votar? (Sim/Não/Indeciso)" required />
+        <input name="prioridadeRegional" placeholder="Prioridade da região" required />
+        <input name="aceitaWhatsApp" placeholder="Aceita contato por WhatsApp? (Sim/Não)" required />
+        <button type="submit">Salvar</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Indicadores Estratégicos</h2>
+      <p id="kpis">Carregando dados...</p>
+    </div>
+    <div class="card">
+      <h2>Gráfico de Avaliação por Bairro</h2>
+      <canvas id="grafico"></canvas>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const form = document.getElementById("formulario");
+    const kpiEl = document.getElementById("kpis");
+    const ctx = document.getElementById("grafico").getContext("2d");
+
+    const dados = JSON.parse(localStorage.getItem("respostas")) || [];
+
+    const atualizarKPIs = () => {
+      const total = dados.length;
+      const media = (dados.reduce((acc, d) => acc + parseFloat(d.avaliacaoCandidato), 0) / total || 0).toFixed(2);
+      const topDemandas = {};
+      dados.forEach(d => {
+        const key = d.principaisDemandas.toLowerCase();
+        topDemandas[key] = (topDemandas[key] || 0) + 1;
+      });
+      const top3 = Object.entries(topDemandas).sort((a,b) => b[1]-a[1]).slice(0,3);
+
+      kpiEl.innerHTML = `
+        <p>Total de entrevistados: <strong>${total}</strong></p>
+        <p>Média de avaliação: <strong>${media}</strong></p>
+        <p>Top 3 demandas:</p>
+        <ul>
+          ${top3.map(([k, v]) => `<li>${k} (${v})</li>`).join('')}
+        </ul>
+      `;
+    };
+
+    const desenharGrafico = () => {
+      const agrupado = {};
+      dados.forEach(d => {
+        const bairro = d.bairro;
+        if (!agrupado[bairro]) agrupado[bairro] = { soma: 0, count: 0 };
+        agrupado[bairro].soma += parseFloat(d.avaliacaoCandidato);
+        agrupado[bairro].count++;
+      });
+      const labels = Object.keys(agrupado);
+      const medias = labels.map(b => (agrupado[b].soma / agrupado[b].count).toFixed(2));
+
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Média por Bairro',
+            data: medias,
+            backgroundColor: '#3b82f6'
+          }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    };
+
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const dadosForm = Object.fromEntries(new FormData(form).entries());
+      dados.push(dadosForm);
+      localStorage.setItem("respostas", JSON.stringify(dados));
+      atualizarKPIs();
+      desenharGrafico();
+      form.reset();
+    };
+
+    atualizarKPIs();
+    desenharGrafico();
+  </script>
+</body>
+</html>
